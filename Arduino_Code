@@ -1,0 +1,103 @@
+#include <LiquidCrystal.h>
+#include <DHT.h>
+
+// -------------------- SENSOR PINS --------------------
+#define MQ135_PIN A0
+
+// GP2Y1014 Dust Sensor pins
+#define DUST_LED_PIN 8
+#define DUST_VOUT_PIN A1
+
+// DHT11 Pins
+#define DHTPIN 9
+#define DHTTYPE DHT11
+
+DHT dht(DHTPIN, DHTTYPE);
+
+// -------------------- LCD PINS --------------------
+// RS, EN, D4, D5, D6, D7
+LiquidCrystal lcd(12, 11, 5, 4, 3, 2);
+
+// ----------------------------------------------------
+
+void setup() {
+  Serial.begin(9600);
+  dht.begin();
+
+  pinMode(DUST_LED_PIN, OUTPUT);
+
+  lcd.begin(16, 4);
+  lcd.print(" Air Quality Init ");
+  delay(2000);
+  lcd.clear();
+}
+
+float readDust() {
+  digitalWrite(DUST_LED_PIN, LOW);
+  delayMicroseconds(280);
+
+  int raw = analogRead(DUST_VOUT_PIN);
+
+  delayMicroseconds(40);
+  digitalWrite(DUST_LED_PIN, HIGH);
+  delayMicroseconds(9680);
+
+  // Convert to dust density (Sharp GP2Y1014 formula)
+  float voltage = raw * (5.0 / 1024.0);
+  float dustDensity = (voltage - 0.1) * 1000.0;
+
+  if (dustDensity < 0) dustDensity = 0;
+
+  return dustDensity;
+}
+
+void loop() {
+
+  // ---------- READ SENSORS ----------
+  int gasValue = analogRead(MQ135_PIN);
+  float dustDensity = readDust();
+
+  float h = dht.readHumidity();
+  float t = dht.readTemperature();
+
+  // Handle NaN cases
+  if (isnan(h) || isnan(t)) {
+    h = 0;
+    t = 0;
+  }
+
+  // ---------- SERIAL OUTPUT ----------
+  Serial.print("Gas: ");
+  Serial.print(gasValue);
+  Serial.print(" | Dust: ");
+  Serial.print(dustDensity, 1);
+  Serial.print(" ug/m3 | Hum: ");
+  Serial.print(h, 1);
+  Serial.print(" % | Temp: ");
+  Serial.print(t, 1);
+  Serial.println(" C");
+
+  // ---------- LCD OUTPUT ----------
+  lcd.clear();
+
+  lcd.setCursor(0, 0);
+  lcd.print("Gas: ");
+  lcd.print(gasValue);
+
+  lcd.setCursor(0, 1);
+  lcd.print("Dust: ");
+  lcd.print(dustDensity, 1);
+  lcd.print("ug/m3");
+
+  lcd.setCursor(0, 2);
+  lcd.print("Hum: ");
+  lcd.print(h, 1);
+  lcd.print("%");
+
+  lcd.setCursor(0, 3);
+  lcd.print("Temp: ");
+  lcd.print(t, 1);
+  lcd.print(" C");
+
+  delay(2000);
+}
