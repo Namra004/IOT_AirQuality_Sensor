@@ -7,6 +7,8 @@ import threading
 # === Prometheus metrics ===
 gas_gauge = Gauge('mq135_gas_value', 'Gas sensor reading from MQ135')
 dust_gauge = Gauge('gp2y1014_dust_density', 'Dust density (ug/m3) from GP2Y1014')
+humidity_gauge = Gauge('dht11_humidity', 'Humidity (%) from DHT11')
+temperature_gauge = Gauge('dht11_temperature', 'Temperature (°C) from DHT11')
 
 # === Flask setup ===
 app = Flask(__name__)
@@ -21,14 +23,20 @@ def read_serial_data():
             line = ser.readline().decode('utf-8').strip()
             if line:
                 print("Received:", line)
-                # Expected format: "Gas: 312 | Dust: 58.6 ug/m3"
-                parts = line.replace("Gas:", "").replace("Dust:", "").replace("ug/m3", "").split("|")
-                gas = float(parts[0].strip())
-                dust = float(parts[1].strip())
+                # Expected format:
+                # Gas: 220 | Dust: 40.2 ug/m3 | Hum: 48.5 % | Temp: 26.9 C
+                parts = line.split('|')
+                gas = float(parts[0].replace("Gas:", "").strip())
+                dust = float(parts[1].replace("Dust:", "").replace("ug/m3", "").strip())
+                hum = float(parts[2].replace("Hum:", "").replace("%", "").strip())
+                temp = float(parts[3].replace("Temp:", "").replace("C", "").strip())
 
                 # Update Prometheus metrics
                 gas_gauge.set(gas)
                 dust_gauge.set(dust)
+                humidity_gauge.set(hum)
+                temperature_gauge.set(temp)
+
         except Exception as e:
             print("Error:", e)
         time.sleep(2)
